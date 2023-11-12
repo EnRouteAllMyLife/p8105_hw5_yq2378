@@ -11,6 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 library(tidyverse)
+library(ggpubr)
 ```
 
 
@@ -24,8 +25,8 @@ homicide = homicide %>%
   mutate(city_state = str_c(city, state, sep=", ")) 
 ttl_bycity = homicide %>% 
   mutate(if_solved = if_else(disposition == "Closed by arrest",1,0 )) %>% 
-  group_by(city) %>% summarise( ttl_homicides = n(), unsolved_homicides = n() - sum(if_solved), .groups = "keep") %>%
-  arrange(desc(ttl_homicides)) 
+  group_by(city) %>% summarise( ttl_cnt = n(), unsolved_cnt = n() - sum(if_solved), .groups = "keep") %>%
+  arrange(desc(ttl_cnt)) 
 ttl_bycity
 ```
 
@@ -40,10 +41,27 @@ broom::tidy(prop_output) %>% pull(estimate)
 broom::tidy(prop_output) %>% pull(conf.low, conf.high)
 ```
 
-Now run prop.test for each of the cities in your dataset, and extract both the proportion of unsolved homicides and the confidence interval for each. Do this within a “tidy” pipeline, making use of purrr::map, purrr::map2, list columns and unnest as necessary to create a tidy dataframe with estimated proportions and CIs for each city.
+```{r, iteration}
+CI_bycity = 
+  ttl_bycity |>
+  mutate(prop_output = map2(.x = unsolved_cnt, .y = ttl_cnt, prop.test),
+         prop_output = map(prop_output,broom::tidy)) |> 
+  unnest(prop_output) |>
+  mutate(CI = paste("(",round(conf.low,4),", ", round(conf.high,4),")"),
+         estimate = round(estimate, 4)) |>
+  select(city, ttl_cnt, unsolved_cnt, estimate,CI, conf.low, conf.high)
+CI_bycity
+```
 
+```{r error_bar}
+CI_bycity |>
+  ggplot(aes(x = factor(city), y = estimate))+ 
+  geom_point(size = 0.8) + 
+  geom_errorbar(aes(ymin = conf.low,  ymax = conf.high), width = 0.2) + 
+  coord_flip() + 
+  theme_pubr() + xlab("City") + ylab("Estimate the Proportion of unsolved homicides") +
+  theme(text = element_text(size = 8),
+        plot.margin = unit(c(.1,.1,.1,.1),'cm'),
+        legend.title = element_blank())
 
-```{r, proptest_iteration}
-
-#map(.x = ttl_bycity$unsolved_homicides,.y = ttl_bycity$ttl_homicides, )
 ```
