@@ -9,18 +9,18 @@ output: github_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r}
+```{r, load libraries}
 library(tidyverse)
 library(ggpubr)
 ```
+# Problem 1 
 
-
-```{r}
+```{r, load p1 data}
 # loading data
 homicide = read.csv("https://raw.githubusercontent.com/washingtonpost/data-homicides/master/homicide-data.csv")
 ```
 
-```{r}
+```{r, ttl homicide data by city}
 homicide = homicide %>% 
   mutate(city_state = str_c(city, state, sep=", ")) 
 ttl_bycity = homicide %>% 
@@ -53,7 +53,7 @@ CI_bycity =
 CI_bycity
 ```
 
-```{r error_bar}
+```{r, error_bar}
 CI_bycity |>
   ggplot(aes(x = factor(city), y = estimate))+ 
   geom_point(size = 0.8) + 
@@ -61,7 +61,41 @@ CI_bycity |>
   coord_flip() + 
   theme_pubr() + xlab("City") + ylab("Estimate the Proportion of unsolved homicides") +
   theme(text = element_text(size = 8),
-        plot.margin = unit(c(.1,.1,.1,.1),'cm'),
-        legend.title = element_blank())
+        plot.margin = unit(c(.1,.1,.1,.1),'cm'))
 
+```
+# Problem 2
+
+This zip file contains data from a longitudinal study that included a control arm and an experimental arm. Data for each participant is included in a separate file, and file names include the subject ID and arm.
+
+Create a tidy dataframe containing data from all participants, including the subject ID, arm, and observations over time:
+
+Start with a dataframe containing all file names; the list.files function will help
+Iterate over file names and read in data for each subject using purrr::map and saving the result as a new variable in the dataframe
+Tidy the result; manipulate file names to include control arm and subject ID, make sure weekly observations are “tidy”, and do any other tidying that’s necessary
+Make a spaghetti plot showing observations on each subject over time, and comment on differences between groups
+
+```{r,load p2 data}
+file_name = list.files(path = "./data")
+file_name = paste("./data/",file_name, sep="")
+study = tibble(
+  arm = substr(file_name,8,10),
+  subject_id = substr(file_name,12,13)) |>
+  mutate(table = map(file_name, read.csv)) |>
+  unnest(cols = "table") |>
+  pivot_longer(cols = starts_with("week_"),
+               names_to = "week",
+               values_to = "values") |>
+  mutate(week = substr(week, 6,6),
+         week = as.numeric(week),
+         arm = if_else(arm == "exp","experimental","control"),)
+study
+```
+
+```{r,spaghetti PLOT!}
+ggplot(data = study, aes(x = week, y = values, color = subject_id, linetype = arm)) +
+  #geom_line(aes(subject_id), linewidth = 1) +
+  geom_line(linewidth = 0.5)+
+  theme_pubr(legend = "right") +
+  labs(x = "Week Time", y = "Value") 
 ```
