@@ -1,0 +1,10 @@
+---
+title: "p8105_hw5_yq2378"
+author: "Qi Yumeng"
+date: "2023-11-12"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
