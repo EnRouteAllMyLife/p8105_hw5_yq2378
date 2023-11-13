@@ -12,6 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r, load libraries}
 library(tidyverse)
 library(ggpubr)
+library(patchwork)
 ```
 # Problem 1 
 
@@ -64,16 +65,8 @@ CI_bycity |>
         plot.margin = unit(c(.1,.1,.1,.1),'cm'))
 
 ```
+
 # Problem 2
-
-This zip file contains data from a longitudinal study that included a control arm and an experimental arm. Data for each participant is included in a separate file, and file names include the subject ID and arm.
-
-Create a tidy dataframe containing data from all participants, including the subject ID, arm, and observations over time:
-
-Start with a dataframe containing all file names; the list.files function will help
-Iterate over file names and read in data for each subject using purrr::map and saving the result as a new variable in the dataframe
-Tidy the result; manipulate file names to include control arm and subject ID, make sure weekly observations are “tidy”, and do any other tidying that’s necessary
-Make a spaghetti plot showing observations on each subject over time, and comment on differences between groups
 
 ```{r,load p2 data}
 file_name = list.files(path = "./data")
@@ -99,3 +92,64 @@ ggplot(data = study, aes(x = week, y = values, color = subject_id, linetype = ar
   theme_pubr(legend = "right") +
   labs(x = "Week Time", y = "Value") 
 ```
+
+# Problem 3
+
+```{r, generate data }
+n = 30
+sigma = 5
+mu_seq = seq(0,6)
+alpha = 0.05
+
+simulation = 
+  tibble(id = seq(1,5000*length(mu_seq)),
+         mu = rep(mu_seq,each = 5000)) |>
+  mutate(data = map(mu, \(mu) rnorm(n, mean = mu,sd = sigma)),
+         t_test = map(data, \(x) t.test(x, alternative = "two.sided",
+                                        mu = 0, paired = FALSE, conf.level = alpha)),
+         t_test_result = map(t_test, broom::tidy)) |>
+  unnest(cols = "t_test_result") |>
+  select(id, mu, p.value, estimate)
+  
+```
+
+In the context of a one-sample t-test, effect size is typically measured as the difference between the sample mean and the hypothesized population mean $\mu = 0$ divided by the standard deviation $sd = 5$. In this case, the effect size (in red color) is positively proportion to true value of $\mu$. As the effect size increases, the power increases, the most prominent change takes place around $\mu$ is around 1~3. As $\mu$ is higher than 4, that is the effect size higher than 0.8, the power reaches almost 100%.
+
+```{r, power}
+simulation |> 
+  mutate(if_reject = if_else(p.value < alpha,1,0)) |>
+  group_by(mu) |> 
+  summarise(proportion = sum(if_reject)/5000) |>
+  ggplot(aes(x = mu, y = proportion)) + 
+  geom_point()+
+  geom_line()+
+  geom_text(aes(label = paste0(round(proportion * 100), "%")),vjust = -0.5)+
+  geom_text(aes(label = round(mu/5 ,2)),vjust = 2, col = "red")+
+  theme_pubr() + xlab("True Value of mu") + ylab("the Power of the Test") 
+```
+
+The sample average of $\hat{\mu}$ across tests for which the null is rejected provides an estimate of the population mean, but it is subject to randomness and variability. For example, the average estimate across samples where the null is rejected may deviate from the true value due to random sampling.  Larger effect sizes and larger sample sizes tend to yield more accurate estimates. Also, the rejection of the null hypothesis is based on statistical significance, indicating that the observed data is unlikely to have occurred by random chance alone. In summary, it is not guaranteed to be exactly equal to the true value of $\mu$, but it should be close to it on average.
+
+
+```{r estimate mu vs actual}
+p1 = 
+  simulation |> 
+  group_by(mu) |> 
+  summarise(avg_mu = mean(estimate)) |>
+  ggplot(aes(x = mu, y = avg_mu)) + 
+  geom_point()+
+  geom_text(aes(label = round(avg_mu ,2)),vjust = -0.5, col = "red")+
+  theme_pubr() + xlab("True Value of mu") + ylab("Estimate Value of mu") 
+
+p2 = 
+  simulation |> 
+  filter(p.value < alpha) |>
+  group_by(mu) |> 
+  summarise(avg_mu = mean(estimate)) |>
+  ggplot(aes(x = mu, y = avg_mu)) + 
+  geom_point()+
+  geom_text(aes(label = round(avg_mu ,2)),vjust = -0.5, col = "red")+
+  theme_pubr() + xlab("True Value of mu") + ylab("Estimate Value of mu") 
+p1+p2
+```
+
