@@ -21,6 +21,8 @@ library(patchwork)
 homicide = read.csv("https://raw.githubusercontent.com/washingtonpost/data-homicides/master/homicide-data.csv")
 ```
 
+The dataset contains `r nrow(homicide)` observations of `r ncol(homicide)` variables. It has information about the reported date, varies from 2007/1/1 to 2015/11/05, the profile of the victim, including name, race, age and sex, also the location and disposition of the cases.
+
 ```{r, ttl homicide data by city}
 homicide = homicide %>% 
   mutate(city_state = str_c(city, state, sep=", ")) 
@@ -30,17 +32,20 @@ ttl_bycity = homicide %>%
   arrange(desc(ttl_cnt)) 
 ttl_bycity
 ```
-
-For the city of Baltimore, MD, use the prop.test function to estimate the proportion of homicides that are unsolved; save the output of prop.test as an R object, apply the broom::tidy to this object and pull the estimated proportion and confidence intervals from the resulting tidy dataframe
+`ttl_bycity` is the data frame summarizing total number of homicides and the number of unsolved homicides  within cities.
+The dataset includes `r nrow(ttl_bycity)` observations of `r ncol(ttl_bycity)` variables and the data is arranged by `ttl_cnt` (the total count of homicides) descendant.
 
 ```{r, Baltimore case}
 ttl_cnt = 2827
 unsolved_cnt = 1825
 prop_output = prop.test(x = unsolved_cnt, n = ttl_cnt)
 broom::tidy(prop_output)
-broom::tidy(prop_output) %>% pull(estimate)
-broom::tidy(prop_output) %>% pull(conf.low, conf.high)
+estimate = broom::tidy(prop_output) %>% pull(estimate)
+conf_low = broom::tidy(prop_output) %>% pull(conf.low)
+conf_high = broom::tidy(prop_output) %>% pull(conf.high)
 ```
+
+For the city of Baltimore, the test result is saved in `prop_output`. The estimated proportion is `r estimate` and the CI is `r paste("(", round(conf_low,4), ", ", round(conf_high,4),")", sep="")`.
 
 ```{r, iteration}
 CI_bycity = 
@@ -48,23 +53,27 @@ CI_bycity =
   mutate(prop_output = map2(.x = unsolved_cnt, .y = ttl_cnt, prop.test),
          prop_output = map(prop_output,broom::tidy)) |> 
   unnest(prop_output) |>
-  mutate(CI = paste("(",round(conf.low,4),", ", round(conf.high,4),")"),
+  mutate(CI = paste("(",round(conf.low,4),", ", round(conf.high,4),")", sep = ""),
          estimate = round(estimate, 4)) |>
   select(city, ttl_cnt, unsolved_cnt, estimate,CI, conf.low, conf.high)
 CI_bycity
 ```
 
+For each of the cities in the `ttl_bycity` dataset, we reserved `city`, `ttl_cnt` and `unsolved_cnt` for reference. Through the iteration, we pull the estimate of the target proportion and the CIs. We also saved the `conf.low` and `conf.high` for later use. 
+
 ```{r, error_bar}
 CI_bycity |>
-  ggplot(aes(x = factor(city), y = estimate))+ 
-  geom_point(size = 0.8) + 
-  geom_errorbar(aes(ymin = conf.low,  ymax = conf.high), width = 0.2) + 
+  ggplot(aes(x = fct_reorder(city,estimate), y = estimate))+ 
+  geom_point(size = 0.8,col = "red") + 
+  geom_errorbar(aes(ymin = conf.low,  ymax = conf.high), width = 0.6) + 
   coord_flip() + 
   theme_pubr() + xlab("City") + ylab("Estimate the Proportion of unsolved homicides") +
   theme(text = element_text(size = 8),
         plot.margin = unit(c(.1,.1,.1,.1),'cm'))
 
 ```
+Each row in the plot represents a city. The estimate proportion of unsolved cases is marked by a red point. The CI for each city is the black line. Cities are organized according to the proportion of unsolved homicides.
+
 
 # Problem 2
 
