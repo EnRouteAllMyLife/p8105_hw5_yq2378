@@ -79,6 +79,7 @@ Each row in the plot represents a city. The estimate proportion of unsolved case
 
 ```{r,load p2 data}
 file_name = list.files(path = "./data")
+# need to specify the path
 file_name = paste("./data/",file_name, sep="")
 study = tibble(
   arm = substr(file_name,8,10),
@@ -95,12 +96,14 @@ study
 ```
 
 ```{r,spaghetti PLOT!}
-ggplot(data = study, aes(x = week, y = values, color = subject_id, linetype = arm)) +
-  #geom_line(aes(subject_id), linewidth = 1) +
+ggplot(data = study, aes(x = week, y = values,
+                         color = subject_id, linetype = arm)) +
   geom_line(linewidth = 0.5)+
   theme_pubr(legend = "right") +
   labs(x = "Week Time", y = "Value") 
 ```
+The spaghetti plot shows observations on each subject over 8 weeks. Colors are to differentiate subject ids and line type to illustrate the control and experimental group. In general, the values for control groups fluctuate around 1 and have no clear upward or downward trend. In contrast, the values for experimental groups fluctuate around 3.5, that's clearly higher than the control. Also, the patients' values in the experimental seems to have upward trend through 8 weeks.
+
 
 # Problem 3
 
@@ -119,7 +122,7 @@ simulation =
          t_test_result = map(t_test, broom::tidy)) |>
   unnest(cols = "t_test_result") |>
   select(id, mu, p.value, estimate)
-  
+simulation  
 ```
 
 In the context of a one-sample t-test, effect size is typically measured as the difference between the sample mean and the hypothesized population mean $\mu = 0$ divided by the standard deviation $sd = 5$. In this case, the effect size (in red color) is positively proportion to true value of $\mu$. As the effect size increases, the power increases, the most prominent change takes place around $\mu$ is around 1~3. As $\mu$ is higher than 4, that is the effect size higher than 0.8, the power reaches almost 100%.
